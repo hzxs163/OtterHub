@@ -78,7 +78,7 @@ export function WallpaperTab() {
 
     try {
       await syncToCloud();
-      toast.success(`${activeSource.name} API Key 已同步到云端`);
+      toast.success(`${activeSource.name} API 密钥已同步到云端`);
     } catch {
       toast.error("同步到云端失败，请稍后重试");
     }
@@ -92,7 +92,7 @@ export function WallpaperTab() {
     } catch (error: any) {
       if (error.message === "API_KEY_MISSING") {
         setIsApiKeyDialogOpen(true);
-        toast.error(`${activeSource?.name} 需要 API Key`);
+        toast.error(`${activeSource?.name} 需要 API 密钥`);
       }
     }
   };
@@ -218,7 +218,7 @@ export function WallpaperTab() {
                     : "text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
                 )}
                 onClick={() => setIsApiKeyDialogOpen(true)}
-                title="配置 API Key"
+                title="配置 API 密钥"
               >
                 <Key className="h-4 w-4" />
               </Button>
@@ -266,7 +266,7 @@ export function WallpaperTab() {
               </div>
               {!activeSource.requiresApiKey && (
                 <span className="text-[9px] text-emerald-500/80 normal-case bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">
-                  无需 API Key
+                  无需 API 密钥
                 </span>
               )}
             </div>
@@ -389,7 +389,7 @@ export function WallpaperTab() {
             <div className="relative animate-in zoom-in-95 duration-200">
               <img
                 src={previewUrl}
-                alt="Preview"
+                alt="预览"
                 className="max-w-[98vw] max-h-[98vh] w-auto h-auto object-contain rounded-lg shadow-2xl cursor-zoom-out"
                 onClick={() => setPreviewUrl(null)}
               />
