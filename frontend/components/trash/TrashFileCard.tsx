@@ -34,9 +34,9 @@ export function TrashFileCard({ file }: TrashFileCardProps) {
 
   const remainingText = useMemo(() => {
     const exp = file.expiration;
-    if (!exp) return "N/A";
+    if (!exp) return "暂无";
     const ms = exp * 1000 - Date.now();
-    if (ms <= 0) return "Expired";
+    if (ms <= 0) return "已过期";
 
     const dayMs = 24 * 60 * 60 * 1000;
     const hourMs = 60 * 60 * 1000;
