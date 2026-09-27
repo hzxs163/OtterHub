@@ -249,7 +249,7 @@ export function TrashSheet({ open, onOpenChange }: TrashSheetProps) {
                 ) : (
                   <RefreshCcw className="h-4 w-4" />
                 )}
-                Restore
+                还原
               </Button>
               <Button
                 variant="destructive"
@@ -263,7 +263,7 @@ export function TrashSheet({ open, onOpenChange }: TrashSheetProps) {
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-                Delete
+                删除
               </Button>
             </div>
           </div>
