@@ -81,7 +81,7 @@ export function ApiKeyDialog({
                 type={showKey ? "text" : "password"}
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder={`输入您的 ${source.name} API Key`}
+                placeholder={`输入您的 ${source.name} API 密钥`}
                 className="pr-10 bg-muted/30 border-border/50"
               />
               <button
@@ -101,7 +101,7 @@ export function ApiKeyDialog({
               rel="noopener noreferrer"
               className="text-[10px] text-primary hover:underline flex items-center gap-1 w-fit"
             >
-              获取 API Key <ExternalLink className="h-3 w-3" />
+              获取 API 密钥 <ExternalLink className="h-3 w-3" />
             </a>
           )}
         </div>
