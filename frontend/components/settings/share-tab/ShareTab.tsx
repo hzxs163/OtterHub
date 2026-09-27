@@ -59,7 +59,7 @@ export function ShareTab() {
       const isBundle = s.type === 'bundle';
       const isExpired = s.expiresAt && s.expiresAt < Date.now();
       const isRevoking = revoking.includes(s.token);
-      const displayName = isBundle ? (s.bundleName || `share-${s.token.slice(0, 8)}`) : s.fileName;
+      const displayName = isBundle ? (s.bundleName || `分享-${s.token.slice(0, 8)}`) : s.fileName;
 
       return (
         <TableRow key={s.token} className="group transition-colors">
