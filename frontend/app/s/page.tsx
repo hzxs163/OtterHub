@@ -66,11 +66,11 @@ function ShareContent() {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!token) return (setError("Invalid link"), setLoading(false));
+    if (!token) return (setError("链接无效"), setLoading(false));
     shareApi
       .getMeta(token)
       .then(setMeta)
-      .catch((err) => setError(err.message || "Failed to load file info"))
+      .catch((err) => setError(err.message || "无法加载文件信息"))
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -294,7 +294,7 @@ function ShareContent() {
         </Card>
 
         <div className="mt-8 text-center text-sm text-muted-foreground/50 z-10">
-          Powered by OtterHub
+          由 OtterHub 提供
         </div>
       </div>
     </>
@@ -315,7 +315,7 @@ const ErrorCard = ({ error }: { error: string }) => (
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
           <AlertCircle className="h-6 w-6 text-destructive" />
         </div>
-        <CardTitle className="text-destructive">Link Unavailable</CardTitle>
+        <CardTitle className="text-destructive">链接不可用</CardTitle>
       </CardHeader>
       <CardContent className="text-muted-foreground">{error}</CardContent>
     </Card>
