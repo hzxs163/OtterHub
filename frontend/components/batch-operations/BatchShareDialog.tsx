@@ -169,7 +169,7 @@ export function BatchShareDialog({
                   type="text"
                   value={bundleName}
                   onChange={(e) => setBundleName(e.target.value)}
-                  placeholder={`默认：share-xxx`}
+                  placeholder={`默认：分享包-xxx`}
                   disabled={isSubmitting}
                   className="bg-secondary/30 border-glass-border text-foreground"
                 />
