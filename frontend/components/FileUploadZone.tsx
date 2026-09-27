@@ -305,8 +305,8 @@ export function FileUploadZone() {
           )}
         >
           {isDragging
-            ? "Drop files to upload"
-            : "Drag & drop files here, or click to browse"}
+            ? "松开即可上传"
+            : "拖拽文件到这里，或点击选择文件"}
         </p>
 
         <input
@@ -326,7 +326,7 @@ export function FileUploadZone() {
               className="bg-secondary/30 p-3 rounded-lg border border-glass-border"
             >
               <div className="flex justify-between text-xs mb-1 text-foreground/80">
-                <span>Uploading</span>
+                <span>上传中</span>
                 <span>{v}%</span>
               </div>
               <Progress value={v} className="h-1" />
