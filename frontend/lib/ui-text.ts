@@ -1,5 +1,5 @@
 export const APP_NAME = "私人网盘"
 export const APP_TAGLINE = "来上传你的文件吧"
-export const APP_CATEGORY = "Private Cloud"
-export const APP_DESC_EN = "A Serverless Personal Cloud Drive"
+export const APP_CATEGORY = "私人云盘"
+export const APP_DESC_EN = "无服务器个人云盘"
 export const APP_DESC_CN = "基于 Cloudflare KV + Telegram Bot API 的免费私人云盘"
