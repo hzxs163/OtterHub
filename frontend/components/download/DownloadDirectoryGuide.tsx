@@ -20,7 +20,7 @@ const FEATURES = [
     Icon: FolderOpen,
     color: "text-blue-500",
     title: "推荐目录",
-    desc: "建议创建并选择 Downloads / OtterHub 目录",
+    desc: "建议创建并选择「下载 / OtterHub」目录",
   },
   {
     Icon: Save,
