@@ -200,7 +200,7 @@ export function TrashSheet({ open, onOpenChange }: TrashSheetProps) {
           {isEmpty && !trashBucket.loading ? (
             <div className="h-full flex flex-col items-center justify-center text-foreground/80 gap-2 min-h-[300px]">
               <Trash2 className="h-12 w-12 opacity-20" />
-              <p>Trash is empty</p>
+              <p>回收站为空</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -222,7 +222,7 @@ export function TrashSheet({ open, onOpenChange }: TrashSheetProps) {
                     onClick={handleLoadMore}
                     className="text-foreground/60 hover:text-foreground"
                   >
-                    Load More
+                    加载更多
                   </Button>
                 </div>
               )}
@@ -234,7 +234,7 @@ export function TrashSheet({ open, onOpenChange }: TrashSheetProps) {
         {hasSelection && (
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-background/95 backdrop-blur-xl flex items-center justify-between animate-in slide-in-from-bottom-5">
             <div className="text-sm font-medium">
-              {selectedTrashKeys.length} selected
+              已选 {selectedTrashKeys.length} 项
             </div>
             <div className="flex items-center gap-2">
               <Button
