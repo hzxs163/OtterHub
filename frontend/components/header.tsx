@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { Search, X, Settings2 } from "lucide-react";
+
 import { useFileQueryStore } from "@/stores/file";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useState } from "react";
