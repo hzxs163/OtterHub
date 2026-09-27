@@ -1,4 +1,6 @@
 "use client";
+import Image from "next/image";
+import { Search, X, Settings2 } from "lucide-react";
 
 import { Search, X, Settings2 } from "lucide-react";
 import { useFileQueryStore } from "@/stores/file";
