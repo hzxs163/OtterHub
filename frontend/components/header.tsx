@@ -66,8 +66,8 @@ export function Header() {
           ) : (
             <div className="flex w-full items-center justify-between animate-in fade-in duration-300">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-primary to-accent text-xl shadow-lg shadow-primary/20">
-                  🦦
+                <div className="h-9 w-9 overflow-hidden rounded-xl shadow-lg shadow-primary/20">
+                  <Image src="/icons/pwa-192.png" alt={APP_NAME} width={36} height={36} className="w-full h-full object-cover" />
                 </div>
                 <span className="text-lg font-bold tracking-tight text-foreground">
                   {APP_NAME}
@@ -161,8 +161,8 @@ export function Header() {
           title="返回顶部"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-primary to-accent text-2xl shadow-xl shadow-primary/20 transition-transform group-hover:scale-110">
-            🦦
+          <div className="h-11 w-11 overflow-hidden rounded-2xl shadow-xl shadow-primary/20 transition-transform group-hover:scale-110">
+            <Image src="/icons/pwa-192.png" alt={APP_NAME} width={44} height={44} className="w-full h-full object-cover" />
           </div>
           <div className="hidden lg:block">
             <h1 className="text-xl font-black tracking-tighter text-foreground leading-none">
