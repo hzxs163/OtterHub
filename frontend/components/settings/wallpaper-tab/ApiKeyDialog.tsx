@@ -73,7 +73,7 @@ export function ApiKeyDialog({
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="api-key" className="text-xs font-bold uppercase opacity-60">
-              API Key
+              API 密钥
             </Label>
             <div className="relative">
               <Input
