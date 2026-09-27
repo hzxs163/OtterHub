@@ -69,8 +69,9 @@ function LoginContent() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[320px] z-10 animate-in fade-in zoom-in duration-700">
       <div className="flex flex-col items-center mb-10">
-        <div className="w-20 h-20 rounded-3xl bg-linear-to-br from-primary to-accent flex items-center justify-center text-5xl shadow-2xl shadow-primary/30 mb-6 animate-bounce">
-          🦦
+        <div className="w-20 h-20 mb-6 animate-bounce">
+          <Image src="/icons/pwa-192.png" alt={APP_NAME} width={80} height={80} priority
+            className="w-full h-full rounded-3xl object-cover shadow-2xl shadow-primary/30" />
         </div>
         <h1 className="text-4xl font-black text-foreground tracking-tighter">
           {APP_NAME}
