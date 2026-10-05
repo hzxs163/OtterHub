@@ -23,13 +23,13 @@ type FileBucket = {
 
 /**
  * 切换文件类型时顺手换成该类型更合适的视图：图片走瀑布、文档走列表。
- * 瀑布只给图片用（切换按钮也只在图片下显示），所以离开图片时退回网格。
+ * 类型偏好要排在瀑布兜底前面，否则从图片的瀑布切到文档会先被退回网格。
  */
 function preferredViewMode(type: FileType, current: ViewMode): ViewMode {
   if (type === FileType.Image) return ViewMode.Masonry;
-  if (current === ViewMode.Masonry) return ViewMode.Grid;
   if (type === FileType.Document) return ViewMode.List;
-  return current;
+  // 瀑布只给图片用（切换按钮也只在图片下显示），其余类型离开图片时退回网格
+  return current === ViewMode.Masonry ? ViewMode.Grid : current;
 }
 
 /**
