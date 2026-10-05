@@ -2,6 +2,7 @@ package com.otterhub.app
 
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.otterhub.app.databinding.ActivitySettingsBinding
 
@@ -11,8 +12,10 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.padForSystemBars()
 
         binding.inputBaseUrl.setText(Config.savedUrl(this))
         binding.inputPassword.setText(Config.password(this))
