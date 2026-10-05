@@ -1,0 +1,70 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 构建 OtterHub APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: 构建 release APK（调试签名，可直接安装）
+        working-directory: android
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: 读取版本号并整理产物
+        run: |
+          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -1)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk "out/OtterHub-$VERSION.apk"
+          ls -l out
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: OtterHub-APK
+          path: out/*.apk
+          if-no-files-found: error
+
+      - name: 发布到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ env.VERSION }}
+          name: OtterHub Android v${{ env.VERSION }}
+          body: |
+            安卓端上传工具，配合 Cloudflare Pages 上的 OtterHub 网盘使用。
+
+            - 在相册/文件管理器里「发送/分享」选 **上传到 OtterHub**，或在 App 内点右下角选择文件
+            - 小于 20 MB 的文件走单次上传，更大的自动分块上传（上限 1 GB）
+            - 支持浏览、预览、复制链接、移入回收站、还原、彻底删除
+            - 需要先在 App 设置里填写网盘地址与密码（或 API Token）
+
+            安装：允许「未知来源应用」后直接安装本 APK（调试签名）。
+          files: out/*.apk
+          overwrite_files: true
+          make_latest: true
+          fail_on_unmatched_files: true

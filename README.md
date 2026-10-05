@@ -196,6 +196,27 @@ curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
 
 ---
 
+## 📱 安卓端 App
+
+`android/` 是一个原生 Kotlin 小客户端，让你在手机上选图片/文件后直接传到自己的 OtterHub 网盘。APK 由 `.github/workflows/android.yml` 在 GitHub Actions 上云构建，本地不需要 Android SDK。
+
+构建与获取：
+
+1. 仓库 Actions 页面运行 **Android APK** workflow（push 到 `android/**` 会自动触发，也可手动触发）。
+2. 产物同时上传到 Workflow artifact 和 GitHub Release（tag `android-v<版本>`），手机浏览器打开 Release 里的 `OtterHub-<版本>.apk` 即可下载安装。
+3. APK 使用调试签名，免配置；若要换成正式签名，在 `android/app/build.gradle.kts` 的 `release` 里替换 `signingConfig` 并把 keystore 配成 Actions Secret。
+
+使用：
+
+- 首次打开 App → 右上角菜单「设置」→ 填网盘地址（默认 `https://tctg.pages.dev`）与访问密码；如果 Pages 环境变量里设过 `API_TOKEN`，填 Token 可免去登录且永不过期。
+- 上传：App 内点右下角选文件；或在相册/文件管理器里选中文件「发送/分享」→ 选 **上传到 OtterHub**。
+- ≤20 MB 走 `POST /upload`，更大的文件自动 `POST /upload/chunk/init` + `POST /upload/chunk` 分块并轮询 `GET /upload/chunk/progress`，上限 50 块 / 1 GB（受 Telegram 后端限制）。
+- 列表页可预览、复制链接、移入回收站、还原、彻底删除。由于 `GET /file/list` 只返回 KV key（不含 metadata），列表中显示的是存储 key 而非原始文件名。
+
+本地构建（需要 JDK 17 + Android SDK）：`cd android && gradle assembleRelease`，产物在 `android/app/build/outputs/apk/release/`。
+
+---
+
 ## 🔧 技术原理
 
 ### 文件上传
@@ -347,6 +368,7 @@ curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
 
 ```
 OtterHub/
+├── android/            # 安卓上传端（Kotlin，由 GitHub Actions 构建 APK）
 ├── frontend/           # Next.js Frontend
 │   ├── lib/
 │   │   ├── api/        # Hono RPC Client (Type-safe)

@@ -1,0 +1,277 @@
+package com.otterhub.app
+
+import android.content.Context
+import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import okio.BufferedSink
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
+import kotlin.math.min
+
+class ApiException(message: String) : Exception(message)
+
+class OtterApi(private val ctx: Context) {
+
+    private val http: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(180, TimeUnit.SECONDS)
+            .writeTimeout(300, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    private val base: String get() = Config.baseUrl(ctx)
+    private val jsonType = "application/json; charset=utf-8".toMediaType()
+
+    /** 服务端合并分片时的进度回调（已合并数, 总数） */
+    var onMergeProgress: ((Int, Int) -> Unit)? = null
+
+    // ---------------- 认证 ----------------
+
+    private fun usesApiToken(): Boolean = Config.apiToken(ctx).isNotEmpty()
+
+    private fun login(): String {
+        val password = Config.password(ctx)
+        if (password.isEmpty()) throw ApiException("请先在设置里填写网盘密码或 API Token")
+        val body = JSONObject().put("password", password).toString().toRequestBody(jsonType)
+        val data = send("/auth/login", "POST", body, attachAuth = false).opt("data")
+        val jwt = data as? String ?: throw ApiException("登录响应中没有 token")
+        Config.storeJwt(ctx, jwt)
+        return jwt
+    }
+
+    private fun applyAuth(builder: Request.Builder) {
+        if (usesApiToken()) {
+            builder.header("Authorization", "Bearer ${Config.apiToken(ctx)}")
+            return
+        }
+        val jwt = Config.cachedJwt(ctx) ?: login()
+        builder.header("Cookie", "auth=$jwt")
+    }
+
+    // ---------------- 请求底座 ----------------
+
+    private fun build(path: String, method: String, body: RequestBody?, attachAuth: Boolean): Request {
+        val builder = Request.Builder().url(base + path)
+        if (attachAuth) applyAuth(builder)
+        when (method) {
+            "GET" -> builder.get()
+            "DELETE" -> builder.delete(body)
+            else -> builder.post(body ?: FormBody.Builder().build())
+        }
+        return builder.build()
+    }
+
+    /** 401 时丢掉缓存的 JWT，重新登录并重放一次；请求体是可重复打开的流，重放安全 */
+    private fun send(path: String, method: String, body: RequestBody?, attachAuth: Boolean = true): JSONObject {
+        var response: Response = http.newCall(build(path, method, body, attachAuth)).execute()
+        if (response.code == 401 && attachAuth && !usesApiToken()) {
+            response.close()
+            Config.clearJwt(ctx)
+            response = http.newCall(build(path, method, body, attachAuth = true)).execute()
+        }
+        val status = response.code
+        val text = response.use { it.body?.string().orEmpty() }
+        val parsed = runCatching { JSONObject(text) }.getOrNull()
+        val message = parsed?.optString("message")?.takeIf { it.isNotEmpty() && it != "null" }
+        val succeeded = status in 200..299 && parsed?.optBoolean("success", false) == true
+        if (!succeeded || parsed == null) {
+            throw ApiException(message ?: "HTTP $status ${text.take(120)}")
+        }
+        return parsed
+    }
+
+    // ---------------- 上传 ----------------
+
+    fun upload(src: UploadSource, onProgress: (Long) -> Unit): String {
+        val tags = JSONArray()
+        if (Config.privateByDefault(ctx)) tags.put("private")
+        return if (src.size <= UploadSource.MAX_CHUNK_SIZE) {
+            singleUpload(src, tags, onProgress)
+        } else {
+            chunkedUpload(src, tags, onProgress)
+        }
+    }
+
+    private fun singleUpload(src: UploadSource, tags: JSONArray, onProgress: (Long) -> Unit): String {
+        val form = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", src.name, streamBody(src, 0L, src.size) { onProgress(it) })
+            .addFormDataPart("nsfw", "false")
+            .addFormDataPart("tags", tags.toString())
+            .build()
+        return send("/upload", "POST", form).opt("data") as? String
+            ?: throw ApiException("上传响应中没有文件 key")
+    }
+
+    private fun chunkedUpload(src: UploadSource, tags: JSONArray, onProgress: (Long) -> Unit): String {
+        val maxFile = UploadSource.MAX_CHUNK_SIZE * UploadSource.MAX_CHUNK_NUM
+        if (src.size > maxFile) {
+            throw ApiException("文件 ${formatSize(src.size)} 超过网盘 1 GB 的单文件上限")
+        }
+        val chunkSize = chunkSizeFor(src.size)
+        val total = ((src.size + chunkSize - 1) / chunkSize).toInt()
+        val fileType = KeyParser.fileTypeOf(src.name, src.mime)
+
+        val initBody = JSONObject()
+            .put("fileType", fileType)
+            .put("fileName", src.name)
+            .put("fileSize", src.size)
+            .put("totalChunks", total)
+            .put("tags", tags)
+            .toString()
+            .toRequestBody(jsonType)
+        val key = send("/upload/chunk/init", "POST", initBody).opt("data") as? String
+            ?: throw ApiException("初始化分片上传失败")
+
+        for (index in 0 until total) {
+            val start = index.toLong() * chunkSize
+            val length = min(chunkSize, src.size - start)
+            var attempt = 0
+            while (true) {
+                try {
+                    val form = MultipartBody.Builder()
+                        .setType(MultipartBody.FORM)
+                        .addFormDataPart("key", key)
+                        .addFormDataPart("chunkIndex", index.toString())
+                        .addFormDataPart("chunkFile", "$key.part$index", streamBody(src, start, length) {
+                            onProgress(start + it)
+                        })
+                        .build()
+                    send("/upload/chunk", "POST", form)
+                    break
+                } catch (error: Exception) {
+                    attempt++
+                    if (attempt >= 3) throw ApiException("第 ${index + 1}/$total 个分片失败：${error.message}")
+                    Thread.sleep(1500L * attempt)
+                }
+            }
+        }
+        awaitMerge(key, total)
+        return key
+    }
+
+    /** 分片接口立即返回，服务端在后台把分片推给 Telegram，需轮询到 complete */
+    private fun awaitMerge(key: String, total: Int) {
+        val deadline = System.currentTimeMillis() + 5 * 60_000L
+        var lastError = ""
+        while (System.currentTimeMillis() < deadline) {
+            val data = runCatching {
+                send("/upload/chunk/progress?key=${enc(key)}", "GET", null).optJSONObject("data")
+            }.getOrElse {
+                lastError = it.message ?: "unknown"
+                null
+            }
+            if (data != null) {
+                if (data.optBoolean("complete", false)) return
+                onMergeProgress?.invoke(data.optJSONArray("uploadedIndices")?.length() ?: 0, total)
+            }
+            Thread.sleep(1200)
+        }
+        throw ApiException("等待服务端合并分片超时${if (lastError.isEmpty()) "" else "（$lastError）"}")
+    }
+
+    private fun streamBody(
+        src: UploadSource,
+        offset: Long,
+        length: Long,
+        onBytes: (Long) -> Unit,
+    ): RequestBody = object : RequestBody() {
+        override fun contentType() = (src.mime ?: "").toMediaTypeOrNull()
+            ?: "application/octet-stream".toMediaType()
+        override fun contentLength() = length
+
+        override fun writeTo(sink: BufferedSink) {
+            src.open().use { input ->
+                var skipped = 0L
+                while (skipped < offset) {
+                    val advanced = input.skip(offset - skipped)
+                    if (advanced <= 0L) break
+                    skipped += advanced
+                }
+                var remaining = length
+                val buffer = ByteArray(64 * 1024)
+                while (remaining > 0) {
+                    val read = input.read(buffer, 0, min(buffer.size.toLong(), remaining).toInt())
+                    if (read < 0) break
+                    sink.write(buffer, 0, read)
+                    remaining -= read
+                    onBytes(read.toLong())
+                }
+            }
+        }
+    }
+
+    // ---------------- 浏览 / 删除 ----------------
+
+    fun list(type: String?): List<FileRow> {
+        val rows = ArrayList<FileRow>()
+        var cursor: String? = null
+        var page = 0
+        while (page < 3) {
+            page++
+            val query = StringBuilder("?limit=200")
+            if (type != null) query.append("&fileType=").append(enc(type))
+            if (cursor != null) query.append("&cursor=").append(enc(cursor))
+            val data = send("/file/list$query", "GET", null).optJSONObject("data") ?: break
+            val keys = data.optJSONArray("keys") ?: JSONArray()
+            for (i in 0 until keys.length()) {
+                val name = keys.optJSONObject(i)?.optString("name").orEmpty()
+                if (name.isEmpty()) continue
+                if (type == null && name.startsWith("trash:")) continue
+                rows.add(KeyParser.parse(name))
+            }
+            cursor = if (data.optBoolean("list_complete", true)) {
+                null
+            } else {
+                data.optString("cursor").takeIf { it.isNotEmpty() && it != "null" }
+            }
+            if (cursor == null) break
+        }
+        return rows
+    }
+
+    fun moveToTrash(key: String) {
+        send("/trash/$key/move", "POST", null)
+    }
+
+    fun restore(trashKey: String) {
+        send("/trash/$trashKey/restore", "POST", null)
+    }
+
+    fun deleteForever(key: String) {
+        send("/file/$key", "DELETE", null)
+    }
+
+    fun previewUrl(key: String): String = "$base/file/$key"
+
+    fun trashUrl(key: String): String = "$base/trash/$key"
+
+    fun downloadUrl(key: String): String = "$base/file/$key/download"
+
+    /** 设置页自检：/health 看后端，/file/list 验证凭证可用 */
+    fun selfCheck(): String {
+        val checks = send("/health", "GET", null, attachAuth = false)
+            .optJSONObject("data")
+            ?.optJSONObject("checks")
+        val backend = when {
+            checks?.optBoolean("tg") == true -> "Telegram 存储"
+            checks?.optBoolean("r2") == true -> "R2 存储"
+            else -> "未知存储后端"
+        }
+        val total = list(null).size
+        return "连接成功（$backend），当前可见 $total 个文件"
+    }
+
+    private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
+}

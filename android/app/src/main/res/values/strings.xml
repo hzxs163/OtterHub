@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OtterHub</string>
+    <string name="share_upload_label">上传到 OtterHub</string>
+    <string name="settings_title">网盘设置</string>
+
+    <string name="filter_all">全部</string>
+    <string name="filter_img">图片</string>
+    <string name="filter_video">视频</string>
+    <string name="filter_audio">音频</string>
+    <string name="filter_doc">文档</string>
+    <string name="filter_trash">回收站</string>
+
+    <string name="idle">空闲</string>
+    <string name="uploading">正在上传 %1$s（%2$d/%3$d）</string>
+    <string name="merging">服务端合并分片中（%1$d/%2$d）</string>
+    <string name="batch_done">本次上传：成功 %1$d，失败 %2$d</string>
+    <string name="not_configured">未配置网盘：请先在设置里填写地址和密码</string>
+    <string name="empty_list">还没有文件，点右下角上传</string>
+    <string name="loading">加载中…</string>
+
+    <string name="action_upload">选择文件上传</string>
+    <string name="action_settings">设置</string>
+    <string name="action_refresh">刷新</string>
+
+    <string name="settings_base_url">网盘地址</string>
+    <string name="settings_password">访问密码</string>
+    <string name="settings_api_token">API Token（可选）</string>
+    <string name="settings_private">上传时默认标记为私有</string>
+    <string name="settings_private_hint">私有文件网页端需登录才能预览</string>
+    <string name="settings_save">保存</string>
+    <string name="settings_test">测试连接</string>
+    <string name="settings_saved">已保存</string>
+    <string name="settings_hint">只填密码即可使用；填写 API Token 后优先使用 Token 认证，永不过期。</string>
+
+    <string name="menu_open">打开预览</string>
+    <string name="menu_download">下载</string>
+    <string name="menu_copy_link">复制链接</string>
+    <string name="menu_trash">移入回收站</string>
+    <string name="menu_delete">彻底删除</string>
+    <string name="menu_restore">从回收站还原</string>
+
+    <string name="toast_queued">已加入上传队列</string>
+    <string name="toast_no_file">没有可上传的文件</string>
+    <string name="toast_copied">链接已复制</string>
+    <string name="confirm_delete_title">彻底删除文件</string>
+    <string name="confirm_delete_msg">将从网盘记录中删除 %1$s（Telegram 侧的文件无法通过 API 删除）。</string>
+    <string name="confirm_trash_title">移入回收站</string>
+    <string name="confirm_trash_msg">把 %1$s 移入回收站？回收站文件 30 天后过期。</string>
+    <string name="confirm_restore_title">还原文件</string>
+    <string name="dialog_cancel">取消</string>
+    <string name="dialog_confirm">确定</string>
+    <string name="op_done">操作完成</string>
+</resources>
