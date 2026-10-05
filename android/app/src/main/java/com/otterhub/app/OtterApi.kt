@@ -308,7 +308,11 @@ class OtterApi(private val ctx: Context) {
     /** WebView/下载器复用同一份 HTTP 客户端与认证头 */
     fun httpClient(): OkHttpClient = http
 
-    fun authedRequest(url: String): Request = applyAuth(Request.Builder().url(url)).build()
+    fun authedRequest(url: String): Request {
+        val builder = Request.Builder().url(url)
+        applyAuth(builder)
+        return builder.build()
+    }
 
     fun invalidateSession() {
         Config.clearJwt(ctx)

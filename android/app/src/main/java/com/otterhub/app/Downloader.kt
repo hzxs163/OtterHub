@@ -30,14 +30,20 @@ object Downloader {
         }.start()
     }
 
-    private fun save(ctx: Context, api: OtterApi, url: String, suggestedName: String): String {
+    private fun save(
+        ctx: Context,
+        api: OtterApi,
+        url: String,
+        suggestedName: String,
+        retried: Boolean = false,
+    ): String {
         val first = execute(api, url)
-        if (first.code == 401) {
+        if (first.code == 401 && !retried) {
             first.close()
             api.invalidateSession()
-            return save(ctx, api, url, suggestedName)
+            return save(ctx, api, url, suggestedName, retried = true)
         }
-        first.use { response ->
+        return first.use { response ->
             if (!response.isSuccessful) throw ApiException("HTTP ${response.code}")
             val body = response.body ?: throw ApiException("服务端没有返回内容")
             val name = fileName(url, response.header("Content-Disposition"), suggestedName)

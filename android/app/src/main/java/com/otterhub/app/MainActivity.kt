@@ -180,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         ): Boolean {
             chooserCallback?.onReceiveValue(null)
             chooserCallback = callback
-            val type = params.acceptType?.takeIf { it.isNotBlank() } ?: "*/*"
+            val type = params.acceptTypes?.firstOrNull { !it.isNullOrBlank() } ?: "*/*"
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 this.type = type
