@@ -112,8 +112,14 @@ class MainActivity : AppCompatActivity() {
         else -> super.onOptionsItemSelected(item)
     }
 
-    private fun selectedType(): String? = when (binding.filterChips.checkedChipId) {
-        R.id.chipImg -> "img"
+    private fun ensureConfigured(): Boolean {
+        if (Config.isConfigured(this)) return true
+        toast(getString(R.string.not_configured))
+        startActivity(Intent(this, SettingsActivity::class.java))
+        return false
+    }
+
+    private fun selectedType(): String? = when (binding.filterChips.checkedChipId) {        R.id.chipImg -> "img"
         R.id.chipVideo -> "video"
         R.id.chipAudio -> "audio"
         R.id.chipDoc -> "doc"

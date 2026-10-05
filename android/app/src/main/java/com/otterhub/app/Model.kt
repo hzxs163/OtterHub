@@ -98,7 +98,7 @@ class UploadSource private constructor(
         fun guessMime(name: String): String? {
             val ext = name.substringAfterLast('.', "")
             if (ext.isEmpty()) return null
-            return android.webkit.MimeTypeMap.getMimeTypeFromExtension(ext.lowercase())
+            return android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase())
         }
     }
 }
