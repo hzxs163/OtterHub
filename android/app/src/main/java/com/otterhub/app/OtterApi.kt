@@ -38,25 +38,63 @@ class OtterApi(private val ctx: Context) {
 
     // ---------------- 认证 ----------------
 
-    private fun usesApiToken(): Boolean = Config.apiToken(ctx).isNotEmpty()
+    /** 填了密码就以密码登录为准（自动获取并缓存 token）；只有密码为空时才用 API Token 框的内容 */
+    private fun passwordMode(): Boolean = Config.password(ctx).isNotEmpty()
+
+    /** 兼容他从浏览器复制的 `auth=eyJ...`：这种值只能当 Cookie 发，不能当 Bearer */
+    private fun pastedCookie(): String? {
+        val token = Config.apiToken(ctx)
+        if (token.isEmpty()) return null
+        val bare = token.removePrefix("auth=").trim()
+        return if (bare.startsWith("eyJ")) bare else null
+    }
 
     private fun login(): String {
         val password = Config.password(ctx)
-        if (password.isEmpty()) throw ApiException("请先在设置里填写网盘密码或 API Token")
+        if (password.isEmpty()) throw ApiException("请先在设置里填写网盘密码")
         val body = JSONObject().put("password", password).toString().toRequestBody(jsonType)
-        val data = send("/auth/login", "POST", body, attachAuth = false).opt("data")
-        val jwt = data as? String ?: throw ApiException("登录响应中没有 token")
+        val request = Request.Builder().url("$base/auth/login").post(body).build()
+        val response = http.newCall(request).execute()
+        val status = response.code
+        val text = response.use { it.body?.string().orEmpty() }
+        if (status == 401) throw ApiException("访问密码不正确，服务端拒绝了登录请求")
+        val parsed = runCatching { JSONObject(text) }.getOrNull()
+            ?: throw ApiException("登录响应不是 JSON（HTTP $status）：${text.take(120)}")
+        if (!parsed.optBoolean("success", false)) {
+            val reason = parsed.optString("message").takeIf { it.isNotEmpty() && it != "null" }
+            throw ApiException(reason ?: "登录失败（HTTP $status）")
+        }
+        // /auth/login 返回 data = { token: "<JWT>" }
+        val jwt = parsed.optJSONObject("data")?.optString("token").orEmpty()
+        if (jwt.isEmpty() || jwt == "null") throw ApiException("登录成功但响应里没有 token")
         Config.storeJwt(ctx, jwt)
         return jwt
     }
 
     private fun applyAuth(builder: Request.Builder) {
-        if (usesApiToken()) {
-            builder.header("Authorization", "Bearer ${Config.apiToken(ctx)}")
+        if (passwordMode()) {
+            builder.header("Cookie", "auth=${Config.cachedJwt(ctx) ?: login()}")
             return
         }
-        val jwt = Config.cachedJwt(ctx) ?: login()
-        builder.header("Cookie", "auth=$jwt")
+        val pasted = pastedCookie()
+        val token = Config.apiToken(ctx)
+        when {
+            pasted != null -> builder.header("Cookie", "auth=$pasted")
+            token.isNotEmpty() -> builder.header("Authorization", "Bearer $token")
+            else -> throw ApiException("请先在设置里填写网盘访问密码")
+        }
+    }
+
+    private fun canRetryAuth(status: Int): Boolean {
+        if (status != 401) return false
+        if (passwordMode()) {
+            Config.clearJwt(ctx)
+            return true
+        }
+        if (pastedCookie() != null) {
+            throw ApiException("从网页复制的 token 已过期（有效期 7 天），请在设置里改填访问密码")
+        }
+        throw ApiException("API Token 不被接受：网盘可能没有设置 API_TOKEN 环境变量，或该值不对")
     }
 
     // ---------------- 请求底座 ----------------
@@ -75,9 +113,8 @@ class OtterApi(private val ctx: Context) {
     /** 401 时丢掉缓存的 JWT，重新登录并重放一次；请求体是可重复打开的流，重放安全 */
     private fun send(path: String, method: String, body: RequestBody?, attachAuth: Boolean = true): JSONObject {
         var response: Response = http.newCall(build(path, method, body, attachAuth)).execute()
-        if (response.code == 401 && attachAuth && !usesApiToken()) {
+        if (attachAuth && canRetryAuth(response.code)) {
             response.close()
-            Config.clearJwt(ctx)
             response = http.newCall(build(path, method, body, attachAuth = true)).execute()
         }
         val status = response.code
@@ -259,6 +296,20 @@ class OtterApi(private val ctx: Context) {
 
     fun downloadUrl(key: String): String = "$base/file/$key/download"
 
+    /** 设置页「保存并登录」：填了密码就立刻换取并缓存 token */
+    fun signIn(): String = when {
+        passwordMode() -> {
+            login()
+            "已用密码登录，token 已自动保存（服务端有效期 7 天，过期会自动重新登录）"
+        }
+
+        pastedCookie() != null -> "将使用你粘贴的网页 token（7 天后会过期，建议改填访问密码）"
+
+        Config.apiToken(ctx).isNotEmpty() -> "将使用 API Token 认证"
+
+        else -> throw ApiException("请先填写网盘访问密码")
+    }
+
     /** 设置页自检：/health 看后端，/file/list 验证凭证可用 */
     fun selfCheck(): String {
         val checks = send("/health", "GET", null, attachAuth = false)
@@ -269,8 +320,13 @@ class OtterApi(private val ctx: Context) {
             checks?.optBoolean("r2") == true -> "R2 存储"
             else -> "未知存储后端"
         }
+        val mode = when {
+            passwordMode() -> "密码登录"
+            pastedCookie() != null -> "网页 token"
+            else -> "API Token"
+        }
         val total = list(null).size
-        return "连接成功（$backend），当前可见 $total 个文件"
+        return "连接成功（$backend / $mode），当前可见 $total 个文件"
     }
 
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")

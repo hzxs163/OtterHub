@@ -17,6 +17,7 @@
     <string name="batch_done">本次上传：成功 %1$d，失败 %2$d</string>
     <string name="not_configured">未配置网盘：请先在设置里填写地址和密码</string>
     <string name="empty_list">还没有文件，点右下角上传</string>
+    <string name="tap_to_setup">还没登录网盘：点左下角齿轮按钮，填地址和访问密码</string>
     <string name="loading">加载中…</string>
 
     <string name="action_upload">选择文件上传</string>
@@ -28,10 +29,11 @@
     <string name="settings_api_token">API Token（可选）</string>
     <string name="settings_private">上传时默认标记为私有</string>
     <string name="settings_private_hint">私有文件网页端需登录才能预览</string>
-    <string name="settings_save">保存</string>
+    <string name="settings_save">保存并登录</string>
     <string name="settings_test">测试连接</string>
-    <string name="settings_saved">已保存</string>
-    <string name="settings_hint">只填密码即可使用；填写 API Token 后优先使用 Token 认证，永不过期。</string>
+    <string name="settings_saved">已保存并登录</string>
+    <string name="settings_working">正在登录并测试…</string>
+    <string name="settings_hint">填访问密码即可：保存时 App 会自动登录并缓存 token（7 天，过期自动重新登录）。API Token 框一般留空；只有网盘真的配了 API_TOKEN 环境变量时才填那个值，不要把网页的 auth=eyJ… 粘进来。</string>
 
     <string name="menu_open">打开预览</string>
     <string name="menu_download">下载</string>

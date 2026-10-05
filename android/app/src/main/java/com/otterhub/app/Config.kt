@@ -5,6 +5,7 @@ import android.content.Context
 object Config {
     private const val PREF = "otterhub_config"
     const val DEFAULT_BASE_URL = "https://tctg.pages.dev"
+    private const val JWT_USABLE_MILLIS = 6L * 24 * 60 * 60 * 1000
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
@@ -32,7 +33,18 @@ object Config {
             .apply()
     }
 
-    fun cachedJwt(ctx: Context): String? = prefs(ctx).getString("jwt", null)
+    /** JWT 服务端有效期 7 天，提前 1 天视为过期以便自动重新登录 */
+    fun cachedJwt(ctx: Context): String? {
+        val store = prefs(ctx)
+        val jwt = store.getString("jwt", null) ?: return null
+        val issuedAt = store.getLong("jwt_at", 0L)
+        val age = System.currentTimeMillis() - issuedAt
+        if (jwt.isEmpty() || age > JWT_USABLE_MILLIS) {
+            clearJwt(ctx)
+            return null
+        }
+        return jwt
+    }
 
     fun storeJwt(ctx: Context, jwt: String) {
         // JWT 有效期 7 天，按 6 天提前重新登录

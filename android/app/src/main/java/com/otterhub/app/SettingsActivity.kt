@@ -19,25 +19,35 @@ class SettingsActivity : AppCompatActivity() {
         binding.inputApiToken.setText(Config.apiToken(this))
         binding.switchPrivate.isChecked = Config.privateByDefault(this)
 
-        binding.buttonSave.setOnClickListener {
-            save()
-            toast(getString(R.string.settings_saved))
-            finish()
-        }
+        binding.buttonSave.setOnClickListener { saveAndSignIn() }
+        binding.buttonTest.setOnClickListener { saveAndSignIn(keepOpen = true) }
+    }
 
-        binding.buttonTest.setOnClickListener {
-            save()
-            binding.testResult.text = "正在测试…"
-            Thread {
-                val result = runCatching { OtterApi(this).selfCheck() }
-                runOnUiThread {
-                    binding.testResult.text = result.fold(
-                        onSuccess = { it },
-                        onFailure = { "失败：${it.message}" }
-                    )
-                }
-            }.start()
-        }
+    private fun saveAndSignIn(keepOpen: Boolean = false) {
+        save()
+        binding.testResult.text = getString(R.string.settings_working)
+        binding.buttonSave.isEnabled = false
+        binding.buttonTest.isEnabled = false
+        Thread {
+            val api = OtterApi(this)
+            val outcome = runCatching { listOf(api.signIn(), api.selfCheck()).joinToString("\n") }
+            runOnUiThread {
+                binding.buttonSave.isEnabled = true
+                binding.buttonTest.isEnabled = true
+                outcome.fold(
+                    onSuccess = { text ->
+                        binding.testResult.text = text
+                        if (!keepOpen) {
+                            toast(getString(R.string.settings_saved))
+                            finish()
+                        }
+                    },
+                    onFailure = { error ->
+                        binding.testResult.text = "失败：${error.message}"
+                    }
+                )
+            }
+        }.start()
     }
 
     private fun save() {

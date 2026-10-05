@@ -73,10 +73,25 @@ class MainActivity : AppCompatActivity() {
             if (!ensureConfigured()) return@setOnClickListener
             picker.launch(arrayOf("*/*"))
         }
+        binding.fabSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        binding.statusPanel.setOnClickListener {
+            if (!Config.isConfigured(this)) {
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
+        }
 
         requestNotificationPermission()
         if (!Config.isConfigured(this)) toast(getString(R.string.not_configured))
+        warmUpSession()
         loadFiles()
+    }
+
+    /** 冷启动时若已配密码但本地没有 token，就后台先登录一次，避免上传时才失败 */
+    private fun warmUpSession() {
+        if (Config.password(this).isEmpty() || Config.cachedJwt(this) != null) return
+        Thread { runCatching { api.signIn() } }.start()
     }
 
     override fun onStart() {
@@ -134,9 +149,11 @@ class MainActivity : AppCompatActivity() {
     private fun loadFiles() {
         if (!Config.isConfigured(this)) {
             binding.swipeRefresh.isRefreshing = false
+            binding.emptyText.setText(R.string.tap_to_setup)
             binding.emptyText.visibility = android.view.View.VISIBLE
             return
         }
+        binding.emptyText.setText(R.string.empty_list)
         binding.swipeRefresh.isRefreshing = true
         val type = selectedType()
         Thread {
