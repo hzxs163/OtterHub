@@ -33,6 +33,7 @@ class PreviewActivity : AppCompatActivity() {
 
         key = intent.getStringExtra(EXTRA_KEY).orEmpty()
         trash = intent.getBooleanExtra(EXTRA_TRASH, false)
+        targetUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
         val name = intent.getStringExtra(EXTRA_NAME).orEmpty()
 
         binding.toolbar.title = name.ifEmpty { getString(R.string.preview_title) }
@@ -104,23 +105,25 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     private fun load() {
-        if (key.isEmpty()) {
+        val url = targetUrl.ifEmpty {
+            if (key.isEmpty()) null else if (trash) api.trashUrl(key) else api.previewUrl(key)
+        }
+        if (url == null) {
             showError(getString(R.string.preview_no_key))
             return
         }
+        targetUrl = url
         binding.errorText.visibility = View.GONE
         binding.progress.visibility = View.VISIBLE
         binding.web.visibility = View.INVISIBLE
         Thread {
             val jwt = runCatching { api.sessionJwt() }.getOrNull()
-            val url = if (trash) api.trashUrl(key) else api.previewUrl(key)
             if (jwt != null) {
                 val cookies = CookieManager.getInstance()
                 cookies.setAcceptCookie(true)
                 cookies.setCookie(url, "auth=$jwt; path=/")
                 cookies.flush()
             }
-            targetUrl = url
             runOnUiThread {
                 if (isFinishing) return@runOnUiThread
                 binding.web.visibility = View.VISIBLE
@@ -153,5 +156,6 @@ class PreviewActivity : AppCompatActivity() {
         const val EXTRA_KEY = "key"
         const val EXTRA_NAME = "name"
         const val EXTRA_TRASH = "trash"
+        const val EXTRA_URL = "url"
     }
 }

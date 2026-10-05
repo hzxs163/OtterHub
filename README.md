@@ -198,7 +198,7 @@ curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
 
 ## 📱 安卓端 App
 
-`android/` 是一个原生 Kotlin 小客户端，让你在手机上选图片/文件后直接传到自己的 OtterHub 网盘。APK 由 `.github/workflows/android.yml` 在 GitHub Actions 上云构建，本地不需要 Android SDK。
+`android/` 是一个原生 Kotlin 客户端：主界面直接承载网盘网页（和移动端网页同款界面），原生侧负责登录态、系统文件选择、分享上传与下载落盘。APK 由 `.github/workflows/android.yml` 在 GitHub Actions 上云构建，本地不需要 Android SDK。
 
 构建与获取：
 
@@ -209,10 +209,12 @@ curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
 使用：
 
 - 首次打开 App → 点**左下角齿轮**进设置 → 填网盘地址（默认 `https://tctg.pages.dev`）与访问密码，按「保存并登录」即可：App 会自动 `POST /auth/login` 换取 JWT 并缓存（服务端 7 天有效，App 提前 1 天自动重登）。API Token 框一般留空，不要把网页的 `auth=eyJ…` 粘进去。
-- 上传：App 内点右下角选文件；或在相册/文件管理器里选中文件「发送/分享」→ 选 **上传到 OtterHub**。分享入口会先把收到的内容复制进应用缓存再上传（系统授予的 `content://` 临时读取权限在分享界面一关就失效，直接引用会读不到文件）。
+- 主界面就是网盘网页本身：搜索、筛选、排序、三种视图（列表/网格/详情）、批量操作、回收站全部和网页移动端一模一样，网页改了 App 也跟着变。App 只在外层补了 WebView 干不了的事——启动时注入 `auth` Cookie 自动登录、把网页里的选文件框接到系统文档选择器（支持多选）、把网页里的下载落到系统下载目录（Android 10+ 进 `下载/OtterHub`，8.x/9 进应用专属目录）、上传时顶部显示进度条并在传完后刷新页面。
+- 网页跳到 `/login`（Cookie 过期）时，App 会用保存的密码自动重新登录再回原页；点左下角齿轮可以**重新加载页面 / 切换到原生列表 / 网盘设置**，原生列表是网页打不开时的备用入口。
+- 网页里用 `window.open` 打开的预览链接会被 App 接住，改在应用内预览页显示；「复制链接」通过 JS 桥接到系统剪贴板（WebView 的 `navigator.clipboard` 常被策略拒绝）。
+- 上传：网页的上传区，或原生列表右下角选文件；也可在相册/文件管理器里选中文件「发送/分享」→ 选 **上传到 OtterHub**。分享入口会先把收到的内容复制进应用缓存再上传（系统授予的 `content://` 临时读取权限在分享界面一关就失效，直接引用会读不到文件）。
 - ≤20 MB 走 `POST /upload`，更大的文件自动 `POST /upload/chunk/init` + `POST /upload/chunk` 分块并轮询 `GET /upload/chunk/progress`，上限 50 块 / 1 GB（受 Telegram 后端限制）。
-- 列表：`GET /file/list` 的每个 key 都带 KV metadata（`fileName` / `fileSize` / `uploadedAt` / `tags`），App 直接显示原始文件名、大小与时间，并按上传时间倒序。
-- 预览：点文件在 **App 内**用 WebView 打开 `GET /file/{key}`，图片、视频、音频、文本都能直接看（音频/视频靠 `Accept-Ranges` 分段加载）；私有文件通过注入 `auth` Cookie 通过校验。长按条目还可复制链接、下载、移入回收站、还原、彻底删除。
+- 原生列表：`GET /file/list` 的每个 key 都带 KV metadata（`fileName` / `fileSize` / `uploadedAt` / `tags`），直接显示原始文件名、大小与时间，并按上传时间倒序；点文件在 **App 内**用 WebView 打开 `GET /file/{key}`，图片、视频、音频、文本都能直接看（音频/视频靠 `Accept-Ranges` 分段加载），私有文件通过注入 `auth` Cookie 通过校验；长按条目还可复制链接、下载、移入回收站、还原、彻底删除。
 
 本地构建（需要 JDK 17 + Android SDK）：`cd android && gradle assembleRelease`，产物在 `android/app/build/outputs/apk/release/`。
 

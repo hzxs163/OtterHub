@@ -3,6 +3,7 @@
     <string name="app_name">OtterHub</string>
     <string name="share_upload_label">上传到 OtterHub</string>
     <string name="settings_title">网盘设置</string>
+    <string name="native_list_title">原生文件列表</string>
 
     <string name="filter_all">全部</string>
     <string name="filter_img">图片</string>
@@ -52,8 +53,21 @@
     <string name="share_partial">已上传 %1$d 个，另有 %2$d 个读不到内容</string>
     <string name="share_failed">分享的文件读取失败，请改用 App 内的上传按钮</string>
 
-    <string name="menu_open">打开预览</string>
-    <string name="menu_download">下载</string>
+    <string name="web_menu_title">OtterHub 菜单</string>
+    <string name="web_menu_reload">重新加载页面</string>
+    <string name="web_menu_native">切换到原生列表</string>
+    <string name="web_menu_settings">网盘设置</string>
+    <string name="web_failed">页面打不开：%1$s\n点此重试</string>
+    <string name="web_need_login">登录状态已失效，请在设置里确认访问密码</string>
+    <string name="web_not_found">页面不存在</string>
+    <string name="web_relogin">登录状态过期，正在自动重新登录…</string>
+    <string name="web_picker_failed">打不开系统文件选择器</string>
+    <string name="web_download_started">开始下载：%1$s</string>
+
+    <string name="download_done">已保存到 %1$s</string>
+    <string name="download_failed">下载失败</string>
+
+    <string name="menu_open">打开预览</string>    <string name="menu_download">下载</string>
     <string name="menu_copy_link">复制链接</string>
     <string name="menu_trash">移入回收站</string>
     <string name="menu_delete">彻底删除</string>
