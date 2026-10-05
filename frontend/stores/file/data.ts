@@ -1,13 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  ListFilesRequest,
-  ViewMode,
-} from "@/lib/types";
+import { ListFilesRequest, ViewMode } from "@/lib/types";
 import { getFileList } from "@/lib/api";
 import { getFileTypeFromKey } from "@/lib/utils/file";
 import { useFileUIStore } from "./ui";
-import { FileItem, FileMetadata, trashPrefix, FileType, TRASH_EXPIRATION_TTL } from "@shared/types";
+import {
+  FileItem,
+  FileMetadata,
+  trashPrefix,
+  FileType,
+  TRASH_EXPIRATION_TTL,
+} from "@shared/types";
 import { storeKey } from "..";
 
 type FileBucket = {
@@ -17,6 +20,17 @@ type FileBucket = {
   loading: boolean;
   error: boolean;
 };
+
+/**
+ * 切换文件类型时顺手换成该类型更合适的视图：图片走瀑布、文档走列表。
+ * 瀑布只给图片用（切换按钮也只在图片下显示），所以离开图片时退回网格。
+ */
+function preferredViewMode(type: FileType, current: ViewMode): ViewMode {
+  if (type === FileType.Image) return ViewMode.Masonry;
+  if (current === ViewMode.Masonry) return ViewMode.Grid;
+  if (type === FileType.Document) return ViewMode.List;
+  return current;
+}
 
 /**
  * 按文件名合并本地和服务端文件列表
@@ -36,7 +50,7 @@ interface FileDataState {
   setActiveType: (type: FileType) => Promise<void>;
   fetchNextPage: () => Promise<void>;
   fetchBucket: (type: FileType) => Promise<void>;
-  
+
   addFileLocal: (file: FileItem, fileType: FileType) => void;
   deleteFilesLocal: (names: string[]) => void;
   deleteFilesLocalByType: (names: string[], type: FileType) => void;
@@ -66,11 +80,9 @@ export const useFileDataStore = create<FileDataState>()(
       },
 
       setActiveType: async (type) => {
-        const { activeType } = get();
-        const { viewMode } = useFileUIStore.getState();
-        if (activeType === FileType.Image && type !== FileType.Image && viewMode === ViewMode.Masonry) {
-          useFileUIStore.setState({ viewMode: ViewMode.Grid });
-        }
+        const ui = useFileUIStore.getState();
+        const preferred = preferredViewMode(type, ui.viewMode);
+        if (preferred !== ui.viewMode) ui.setViewMode(preferred);
         set({ activeType: type });
 
         // 如果从未加载过数据，触发一次分页加载
@@ -100,9 +112,9 @@ export const useFileDataStore = create<FileDataState>()(
 
         try {
           const { itemsPerPage } = useFileUIStore.getState();
-          const params: ListFilesRequest = { 
+          const params: ListFilesRequest = {
             fileType: type,
-            limit: itemsPerPage.toString()
+            limit: itemsPerPage.toString(),
           };
           if (bucket.cursor) params.cursor = bucket.cursor;
 
@@ -114,7 +126,10 @@ export const useFileDataStore = create<FileDataState>()(
               buckets: {
                 ...state.buckets,
                 [type]: {
-                  items: bucket.cursor !== undefined ? mergeByName(prev.items, data.keys) : data.keys,
+                  items:
+                    bucket.cursor !== undefined
+                      ? mergeByName(prev.items, data.keys)
+                      : data.keys,
                   cursor: data.cursor,
                   hasMore: !data.list_complete,
                   loading: false,
@@ -168,20 +183,30 @@ export const useFileDataStore = create<FileDataState>()(
       deleteFilesLocal: (names: string[]) =>
         set((state) => {
           // 1. 更新 buckets
-          const newBuckets = Object.entries(state.buckets).reduce((acc, [type, bucket]) => {
-            acc[type as FileType] = {
-              ...bucket,
-              items: bucket.items.filter((item) => !names.includes(item.name)),
-            };
-            return acc;
-          }, {} as Record<FileType, FileBucket>);
+          const newBuckets = Object.entries(state.buckets).reduce(
+            (acc, [type, bucket]) => {
+              acc[type as FileType] = {
+                ...bucket,
+                items: bucket.items.filter(
+                  (item) => !names.includes(item.name)
+                ),
+              };
+              return acc;
+            },
+            {} as Record<FileType, FileBucket>
+          );
 
           // 2. 同步清理 selection
           const { selectedKeys } = useFileUIStore.getState();
-          const newSelectedKeys = Object.entries(selectedKeys).reduce((acc, [type, keys]) => {
-            acc[type as FileType] = keys.filter((key) => !names.includes(key));
-            return acc;
-          }, {} as Record<FileType, string[]>);
+          const newSelectedKeys = Object.entries(selectedKeys).reduce(
+            (acc, [type, keys]) => {
+              acc[type as FileType] = keys.filter(
+                (key) => !names.includes(key)
+              );
+              return acc;
+            },
+            {} as Record<FileType, string[]>
+          );
           useFileUIStore.setState({ selectedKeys: newSelectedKeys });
 
           return { buckets: newBuckets };
@@ -194,7 +219,9 @@ export const useFileDataStore = create<FileDataState>()(
             ...state.buckets,
             [type]: {
               ...state.buckets[type],
-              items: state.buckets[type].items.filter((item) => !names.includes(item.name)),
+              items: state.buckets[type].items.filter(
+                (item) => !names.includes(item.name)
+              ),
             },
           };
 
@@ -212,15 +239,18 @@ export const useFileDataStore = create<FileDataState>()(
 
       updateFileMetadata: (name, metadata) =>
         set((state) => {
-          const newBuckets = Object.entries(state.buckets).reduce((acc, [type, bucket]) => {
-            acc[type as FileType] = {
-              ...bucket,
-              items: bucket.items.map((item) =>
-                item.name === name ? { ...item, metadata } : item
-              ),
-            };
-            return acc;
-          }, {} as Record<FileType, FileBucket>);
+          const newBuckets = Object.entries(state.buckets).reduce(
+            (acc, [type, bucket]) => {
+              acc[type as FileType] = {
+                ...bucket,
+                items: bucket.items.map((item) =>
+                  item.name === name ? { ...item, metadata } : item
+                ),
+              };
+              return acc;
+            },
+            {} as Record<FileType, FileBucket>
+          );
           return { buckets: newBuckets };
         }),
     }),
@@ -243,5 +273,4 @@ export const useBucketItems = (type: FileType) =>
   useFileDataStore((s) => s.buckets[type].items);
 
 /** 获取所有 buckets（用于跨类型操作） */
-export const useFileBuckets = () =>
-  useFileDataStore((s) => s.buckets);
+export const useFileBuckets = () => useFileDataStore((s) => s.buckets);
