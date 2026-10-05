@@ -31,9 +31,38 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
+      - name: 准备调试签名密钥
+        run: |
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            mkdir -p "$HOME/.android"
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=Android" > /dev/null
+          fi
+
       - name: 构建 release APK（调试签名，可直接安装）
         working-directory: android
-        run: gradle assembleRelease --no-daemon --stacktrace
+        run: set -o pipefail; gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+      - name: 失败时把日志写到 commit comment
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.existsSync(process.env.GITHUB_WORKSPACE + '/build.log')
+              ? fs.readFileSync(process.env.GITHUB_WORKSPACE + '/build.log', 'utf8')
+              : 'no build.log';
+            const tail = log.split('\n').filter((l) =>
+              /error:|FAILURE|What went wrong|Caused by|^e: |Unresolved|Execution failed/.test(l)
+            ).slice(-60).join('\n').slice(-5000) || log.slice(-3000);
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: 'Android APK 构建失败，关键日志：\n```\n' + tail + '\n```',
+            });
 
       - name: 读取版本号并整理产物
         run: |
