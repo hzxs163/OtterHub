@@ -55,6 +55,7 @@
 
     <string name="web_menu_title">OtterHub 菜单</string>
     <string name="web_menu_reload">重新加载页面</string>
+    <string name="web_menu_native_upload">原生上传（后台不中断）</string>
     <string name="web_menu_native">切换到原生列表</string>
     <string name="web_menu_settings">网盘设置</string>
     <string name="web_failed">页面打不开：%1$s\n点此重试</string>

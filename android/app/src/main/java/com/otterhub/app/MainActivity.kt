@@ -62,6 +62,15 @@ class MainActivity : AppCompatActivity() {
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    /** 网页在后台会被系统限速甚至挂起，大文件仍建议走这条原生前台服务队列 */
+    private val nativeUpload =
+        registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+            if (uris.isNullOrEmpty()) return@registerForActivityResult
+            uris.forEach { keepReadable(it) }
+            UploadService.enqueue(this, uris)
+            toast(getString(R.string.toast_queued))
+        }
+
     private val poller = object : Runnable {
         override fun run() {
             if (UploadState.revision != watchedRevision) {
@@ -356,16 +365,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMenu() {
-        val reload = getString(R.string.web_menu_reload)
-        val nativeList = getString(R.string.web_menu_native)
-        val settings = getString(R.string.web_menu_settings)
+        val items = arrayOf(
+            getString(R.string.web_menu_reload),
+            getString(R.string.web_menu_native_upload),
+            getString(R.string.web_menu_native),
+            getString(R.string.web_menu_settings)
+        )
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.web_menu_title)
-            .setItems(arrayOf(reload, nativeList, settings)) { _, which ->
+            .setItems(items) { _, which ->
                 when (which) {
                     0 -> loadPage()
-                    1 -> startActivity(Intent(this, FilesActivity::class.java))
-                    2 -> startActivity(Intent(this, SettingsActivity::class.java))
+                    1 -> nativeUpload.launch(arrayOf("*/*"))
+                    2 -> startActivity(Intent(this, FilesActivity::class.java))
+                    3 -> startActivity(Intent(this, SettingsActivity::class.java))
                 }
             }
             .show()
