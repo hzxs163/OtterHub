@@ -11,8 +11,8 @@ android {
         applicationId = "com.otterhub.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
     }
 
     // 按选择使用调试签名：开箱即装，无需在 CI 配置密钥

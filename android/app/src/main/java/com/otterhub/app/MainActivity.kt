@@ -49,21 +49,10 @@ class MainActivity : AppCompatActivity() {
     private var loadedUrl = ""
     private var chooserCallback: ValueCallback<Array<Uri>>? = null
 
-    private val fileChooser =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val callback = chooserCallback
-            chooserCallback = null
-            val picked = result.data
-                ?.let { WebChromeClient.FileChooserParams.parseResult(result.resultCode, it) }
-                ?.takeIf { it.isNotEmpty() }
-                ?.filter { keepReadable(it) }
-            callback?.onReceiveValue(picked?.toTypedArray())
-        }
-
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    /** 网页在后台会被系统限速甚至挂起，大文件仍建议走这条原生前台服务队列 */
+    /** 网页上传和齿轮菜单都走这条前台服务队列：有进度、切后台不中断、大文件自动分片 */
     private val nativeUpload =
         registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNullOrEmpty()) return@registerForActivityResult
@@ -175,7 +164,10 @@ class MainActivity : AppCompatActivity() {
             if (newProgress >= 100) binding.pageProgress.visibility = View.GONE
         }
 
-        /** 网页里的文件选择框交给系统文档选择器，放开多选和全部类型 */
+        /**
+         * 网页里的「点击选择文件」改走原生上传队列：把 content URI 回交给 WebView 这条路
+         * 在部分机型上取不到文件，原生队列则能分片、切后台也不中断，进度显示在顶部状态条。
+         */
         override fun onShowFileChooser(
             webView: WebView,
             callback: ValueCallback<Array<Uri>>,
@@ -183,16 +175,13 @@ class MainActivity : AppCompatActivity() {
         ): Boolean {
             chooserCallback?.onReceiveValue(null)
             chooserCallback = callback
-            val type = params.acceptTypes?.firstOrNull { !it.isNullOrBlank() } ?: "*/*"
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                this.type = type
-                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-            }
-            val started = runCatching { fileChooser.launch(intent) }.isSuccess
+            handler.post { releaseChooser() }
+            val mimes = params.acceptTypes?.flatMap { it.orEmpty().split(',') }
+                ?.map { it.trim() }?.filter { it.isNotEmpty() }?.toTypedArray()
+                ?.takeIf { it.isNotEmpty() } ?: arrayOf("*/*")
+            val started = runCatching { nativeUpload.launch(mimes) }.isSuccess
             if (!started) {
-                chooserCallback = null
-                callback.onReceiveValue(null)
+                releaseChooser()
                 toast(getString(R.string.web_picker_failed))
             }
             return started
@@ -359,12 +348,17 @@ class MainActivity : AppCompatActivity() {
             .onFailure { toast(getString(R.string.preview_no_browser)) }
     }
 
-    /** 临时授权可能被回收，能持久化就持久化，让 WebView 读完整个文件 */
-    private fun keepReadable(uri: Uri): Boolean {
+    /** 上传要读整个文件，临时授权可能被回收，能持久化就持久化 */
+    private fun keepReadable(uri: Uri) {
         runCatching {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return true
+    }
+
+    /** 告诉网页"这次选择已取消"，文件改由原生队列上传 */
+    private fun releaseChooser() {
+        chooserCallback?.onReceiveValue(null)
+        chooserCallback = null
     }
 
     private fun showMenu() {
@@ -420,8 +414,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         handler.removeCallbacks(poller)
-        chooserCallback?.onReceiveValue(null)
-        chooserCallback = null
+        releaseChooser()
         binding.web.destroy()
         super.onDestroy()
     }
