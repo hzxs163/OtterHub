@@ -11,11 +11,15 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import java.io.File
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class UploadService : Service() {
 
-    private val pending = ConcurrentLinkedQueue<Uri>()
+    /** 队列项：本地文件（分享入口复制出来的），或选择器给的带持久授权的 Uri */
+    private data class Job(val file: File?, val uri: Uri?, val label: String)
+
+    private val pending = ConcurrentLinkedQueue<Job>()
     private var worker: Thread? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -26,14 +30,13 @@ class UploadService : Service() {
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, getString(R.string.app_name), NotificationManager.IMPORTANCE_LOW)
         )
+        UploadSource.purgeStale(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val uris = intent?.extras?.let { bundle ->
-            runCatching { bundle.getParcelableArrayList<Uri>(EXTRA_URIS) }.getOrNull()
-        }.orEmpty()
+        val jobs = readJobs(intent)
 
-        if (uris.isEmpty()) {
+        if (jobs.isEmpty()) {
             if (worker?.isAlive != true) stopSelf()
             return START_NOT_STICKY
         }
@@ -41,13 +44,25 @@ class UploadService : Service() {
         startForegroundCompat(buildNotification(getString(R.string.idle), 0, ongoing = true))
 
         val batchStarted = worker?.isAlive != true
-        if (batchStarted) UploadState.beginBatch(uris.size) else UploadState.totalItems += uris.size
-        pending.addAll(uris)
+        if (batchStarted) UploadState.beginBatch(jobs.size) else UploadState.totalItems += jobs.size
+        pending.addAll(jobs)
 
         if (batchStarted) {
             worker = Thread { runQueue() }.apply { start() }
         }
         return START_NOT_STICKY
+    }
+
+    private fun readJobs(intent: Intent?): List<Job> {
+        val paths = intent?.getStringArrayListExtra(EXTRA_PATHS).orEmpty()
+        val uris = intent?.getStringArrayListExtra(EXTRA_URIS).orEmpty()
+        val jobs = ArrayList<Job>(paths.size + uris.size)
+        paths.forEach { path -> jobs.add(Job(File(path), null, path.substringAfterLast('/'))) }
+        uris.forEach { raw ->
+            val uri = runCatching { Uri.parse(raw) }.getOrNull() ?: return@forEach
+            jobs.add(Job(null, uri, uri.lastPathSegment ?: "文件"))
+        }
+        return jobs
     }
 
     private fun runQueue() {
@@ -60,8 +75,8 @@ class UploadService : Service() {
         var index = 0
         var idleRounds = 0
         while (true) {
-            val uri = pending.poll()
-            if (uri == null) {
+            val job = pending.poll()
+            if (job == null) {
                 // 稍等几轮，让并发的 onStartCommand 有机会加入新任务
                 if (++idleRounds > 6) break
                 Thread.sleep(500)
@@ -69,13 +84,13 @@ class UploadService : Service() {
             }
             idleRounds = 0
             index++
-            val hint = uri.lastPathSegment ?: "文件"
-            UploadState.startItem(hint, index)
+            UploadState.startItem(job.label, index)
             publish()
 
             var source: UploadSource? = null
             try {
-                val created = UploadSource.from(this, uri)
+                val created = job.file?.let { UploadSource.fromFile(this, it) }
+                    ?: UploadSource.from(this, job.uri!!)
                 source = created
                 UploadState.startItem(created.name, index)
                 var lastPercent = -1
@@ -89,7 +104,7 @@ class UploadService : Service() {
                 }
                 UploadState.ok(created.name)
             } catch (error: Exception) {
-                UploadState.fail(hint, error.message)
+                UploadState.fail(job.label, error.message)
             } finally {
                 source?.release()
                 publish()
@@ -118,6 +133,7 @@ class UploadService : Service() {
             .setSmallIcon(R.drawable.ic_stat_upload)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setOnlyAlertOnce(true)
             .setOngoing(ongoing)
             .setProgress(100, progress, false)
@@ -138,10 +154,21 @@ class UploadService : Service() {
         private const val CHANNEL_ID = "otterhub_upload"
         private const val NOTIFICATION_ID = 1001
         private const val EXTRA_URIS = "uris"
+        private const val EXTRA_PATHS = "paths"
 
         fun enqueue(ctx: Context, uris: List<Uri>) {
+            start(ctx, uris.map { it.toString() }, emptyList())
+        }
+
+        /** 分享入口复制好的本地文件，路径直接传给服务，避免 file:// 授权问题 */
+        fun enqueueFiles(ctx: Context, paths: List<String>) {
+            start(ctx, emptyList(), paths)
+        }
+
+        private fun start(ctx: Context, uris: List<String>, paths: List<String>) {
             val intent = Intent(ctx, UploadService::class.java)
-            intent.putParcelableArrayListExtra(EXTRA_URIS, ArrayList(uris))
+                .putStringArrayListExtra(EXTRA_URIS, ArrayList(uris))
+                .putStringArrayListExtra(EXTRA_PATHS, ArrayList(paths))
             ContextCompat.startForegroundService(ctx, intent)
         }
     }

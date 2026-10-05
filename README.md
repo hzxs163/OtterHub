@@ -208,10 +208,11 @@ curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
 
 使用：
 
-- 首次打开 App → 右上角菜单「设置」→ 填网盘地址（默认 `https://tctg.pages.dev`）与访问密码；如果 Pages 环境变量里设过 `API_TOKEN`，填 Token 可免去登录且永不过期。
-- 上传：App 内点右下角选文件；或在相册/文件管理器里选中文件「发送/分享」→ 选 **上传到 OtterHub**。
+- 首次打开 App → 点**左下角齿轮**进设置 → 填网盘地址（默认 `https://tctg.pages.dev`）与访问密码，按「保存并登录」即可：App 会自动 `POST /auth/login` 换取 JWT 并缓存（服务端 7 天有效，App 提前 1 天自动重登）。API Token 框一般留空，不要把网页的 `auth=eyJ…` 粘进去。
+- 上传：App 内点右下角选文件；或在相册/文件管理器里选中文件「发送/分享」→ 选 **上传到 OtterHub**。分享入口会先把收到的内容复制进应用缓存再上传（系统授予的 `content://` 临时读取权限在分享界面一关就失效，直接引用会读不到文件）。
 - ≤20 MB 走 `POST /upload`，更大的文件自动 `POST /upload/chunk/init` + `POST /upload/chunk` 分块并轮询 `GET /upload/chunk/progress`，上限 50 块 / 1 GB（受 Telegram 后端限制）。
-- 列表页可预览、复制链接、移入回收站、还原、彻底删除。由于 `GET /file/list` 只返回 KV key（不含 metadata），列表中显示的是存储 key 而非原始文件名。
+- 列表：`GET /file/list` 的每个 key 都带 KV metadata（`fileName` / `fileSize` / `uploadedAt` / `tags`），App 直接显示原始文件名、大小与时间，并按上传时间倒序。
+- 预览：点文件在 **App 内**用 WebView 打开 `GET /file/{key}`，图片、视频、音频、文本都能直接看（音频/视频靠 `Accept-Ranges` 分段加载）；私有文件通过注入 `auth` Cookie 通过校验。长按条目还可复制链接、下载、移入回收站、还原、彻底删除。
 
 本地构建（需要 JDK 17 + Android SDK）：`cd android && gradle assembleRelease`，产物在 `android/app/build/outputs/apk/release/`。
 

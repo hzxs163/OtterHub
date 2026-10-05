@@ -23,9 +23,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PreviewActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:label="@string/preview_title" />
+
         <!-- 系统「发送/分享」入口：相册、文件管理器选中文件后分享到这里直接上传 -->
         <activity
             android:name=".ShareActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="true"
             android:label="@string/share_upload_label"
             android:theme="@style/Theme.OtterHub.Transparent">
@@ -44,10 +51,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="audio/*" />
             </intent-filter>
+            <!-- 文件管理器/云盘分享的类型五花八门，兜底匹配其余所有文件类型 -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/*" />
+                <data android:mimeType="*/*" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
@@ -62,7 +70,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/*" />
+                <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
 

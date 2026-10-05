@@ -35,6 +35,23 @@
     <string name="settings_working">正在登录并测试…</string>
     <string name="settings_hint">填访问密码即可：保存时 App 会自动登录并缓存 token（7 天，过期自动重新登录）。API Token 框一般留空；只有网盘真的配了 API_TOKEN 环境变量时才填那个值，不要把网页的 auth=eyJ… 粘进来。</string>
 
+    <string name="badge_private">私有</string>
+
+    <string name="preview_title">预览</string>
+    <string name="preview_back">返回</string>
+    <string name="preview_reload">重新加载</string>
+    <string name="preview_external">用浏览器打开</string>
+    <string name="preview_failed">无法预览：%1$s\n点此重试</string>
+    <string name="preview_need_login">这是私有文件，登录状态已失效或没有访问权限</string>
+    <string name="preview_missing">文件不存在或已被删除</string>
+    <string name="preview_no_key">缺少文件标识，无法预览</string>
+    <string name="preview_no_browser">手机上没有能打开该链接的应用</string>
+
+    <string name="share_preparing">正在接收分享的文件…</string>
+    <string name="share_copying">正在准备 %1$d/%2$d：%3$s</string>
+    <string name="share_partial">已上传 %1$d 个，另有 %2$d 个读不到内容</string>
+    <string name="share_failed">分享的文件读取失败，请改用 App 内的上传按钮</string>
+
     <string name="menu_open">打开预览</string>
     <string name="menu_download">下载</string>
     <string name="menu_copy_link">复制链接</string>

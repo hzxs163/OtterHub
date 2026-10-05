@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
 
         adapter = FileListAdapter(
-            onClick = { row -> openInBrowser(if (row.isTrash) api.trashUrl(row.key) else api.previewUrl(row.key)) },
+            onClick = { row -> openPreview(row) },
             onLongClick = { row -> showActions(row) }
         )
         binding.fileList.layoutManager = LinearLayoutManager(this)
@@ -201,7 +201,7 @@ class MainActivity : AppCompatActivity() {
     private fun handleAction(row: FileRow, action: String) {
         val viewUrl = if (row.isTrash) api.trashUrl(row.key) else api.previewUrl(row.key)
         when (action) {
-            getString(R.string.menu_open) -> openInBrowser(viewUrl)
+            getString(R.string.menu_open) -> openPreview(row)
 
             getString(R.string.menu_copy_link) -> {
                 val manager = getSystemService(ClipboardManager::class.java)
@@ -250,6 +250,14 @@ class MainActivity : AppCompatActivity() {
                 }.start()
             }
             .show()
+    }
+
+    private fun openPreview(row: FileRow) {
+        val intent = Intent(this, PreviewActivity::class.java)
+            .putExtra(PreviewActivity.EXTRA_KEY, row.key)
+            .putExtra(PreviewActivity.EXTRA_NAME, row.displayName)
+            .putExtra(PreviewActivity.EXTRA_TRASH, row.isTrash)
+        startActivity(intent)
     }
 
     private fun openInBrowser(url: String) {

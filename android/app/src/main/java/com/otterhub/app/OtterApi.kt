@@ -263,10 +263,11 @@ class OtterApi(private val ctx: Context) {
             val data = send("/file/list$query", "GET", null).optJSONObject("data") ?: break
             val keys = data.optJSONArray("keys") ?: JSONArray()
             for (i in 0 until keys.length()) {
-                val name = keys.optJSONObject(i)?.optString("name").orEmpty()
+                val item = keys.optJSONObject(i) ?: continue
+                val name = item.optString("name")
                 if (name.isEmpty()) continue
                 if (type == null && name.startsWith("trash:")) continue
-                rows.add(KeyParser.parse(name))
+                rows.add(KeyParser.parse(name, item.optJSONObject("metadata")))
             }
             cursor = if (data.optBoolean("list_complete", true)) {
                 null
@@ -275,7 +276,8 @@ class OtterApi(private val ctx: Context) {
             }
             if (cursor == null) break
         }
-        return rows
+        // KV list 按 key 字典序返回，这里改成按上传时间倒序
+        return rows.sortedByDescending { it.uploadedAt }
     }
 
     fun moveToTrash(key: String) {
@@ -295,6 +297,13 @@ class OtterApi(private val ctx: Context) {
     fun trashUrl(key: String): String = "$base/trash/$key"
 
     fun downloadUrl(key: String): String = "$base/file/$key/download"
+
+    /** 给 WebView 用的凭证：确保已登录并返回可写进 Cookie 的 JWT；纯 API Token 模式返回 null */
+    fun sessionJwt(): String? = when {
+        passwordMode() -> Config.cachedJwt(ctx) ?: login()
+        pastedCookie() != null -> pastedCookie()
+        else -> null
+    }
 
     /** 设置页「保存并登录」：填了密码就立刻换取并缓存 token */
     fun signIn(): String = when {

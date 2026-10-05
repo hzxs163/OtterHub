@@ -5,11 +5,18 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.otterhub.app.databinding.ItemFileBinding
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class FileListAdapter(
     private val onClick: (FileRow) -> Unit,
     private val onLongClick: (FileRow) -> Unit,
 ) : RecyclerView.Adapter<FileListAdapter.Holder>() {
+
+    private companion object {
+        val DATE_FORMAT = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
+    }
 
     private val rows = ArrayList<FileRow>()
 
@@ -38,7 +45,12 @@ class FileListAdapter(
         val row = rows[position]
         val ctx: Context = holder.itemView.context
         holder.binding.itemTitle.text = row.displayName
-        holder.binding.itemSubtitle.text = listOf(typeLabel(ctx, row.type), row.key).joinToString(" · ")
+        holder.binding.itemSubtitle.text = buildString {
+            append(typeLabel(ctx, row.type))
+            if (row.size > 0L) append(" · ").append(formatSize(row.size))
+            if (row.uploadedAt > 0L) append(" · ").append(DATE_FORMAT.format(Date(row.uploadedAt)))
+            if (row.isPrivate) append(" · ").append(ctx.getString(R.string.badge_private))
+        }
         holder.binding.itemIcon.setImageResource(
             when (row.type) {
                 "img" -> R.drawable.ic_type_img
