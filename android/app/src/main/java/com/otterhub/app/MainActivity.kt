@@ -366,7 +366,8 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.web_menu_reload),
             getString(R.string.web_menu_native_upload),
             getString(R.string.web_menu_native),
-            getString(R.string.web_menu_settings)
+            getString(R.string.web_menu_settings),
+            getString(R.string.web_menu_background)
         )
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.web_menu_title)
@@ -376,6 +377,10 @@ class MainActivity : AppCompatActivity() {
                     1 -> nativeUpload.launch(arrayOf("*/*"))
                     2 -> startActivity(Intent(this, FilesActivity::class.java))
                     3 -> startActivity(Intent(this, SettingsActivity::class.java))
+                    4 -> startActivity(
+                        Intent(this, SettingsActivity::class.java)
+                            .putExtra(UploadService.EXTRA_OPEN_BACKGROUND, true)
+                    )
                 }
             }
             .show()

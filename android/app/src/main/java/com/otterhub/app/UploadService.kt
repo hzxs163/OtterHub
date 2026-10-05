@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -21,6 +22,15 @@ class UploadService : Service() {
 
     private val pending = ConcurrentLinkedQueue<Job>()
     private var worker: Thread? = null
+
+    @Volatile
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    @Volatile
+    private var lastActivityAt = 0L
+
+    @Volatile
+    private var stalled = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -44,13 +54,25 @@ class UploadService : Service() {
         startForegroundCompat(buildNotification(getString(R.string.idle), 0, ongoing = true))
 
         val batchStarted = worker?.isAlive != true
-        if (batchStarted) UploadState.beginBatch(jobs.size) else UploadState.totalItems += jobs.size
+        if (batchStarted) {
+            UploadState.beginBatch(jobs.size)
+            lastActivityAt = System.currentTimeMillis()
+        } else {
+            UploadState.totalItems += jobs.size
+        }
         pending.addAll(jobs)
 
         if (batchStarted) {
             worker = Thread { runQueue() }.apply { start() }
         }
         return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        runCatching { wakeLock?.release() }
+        wakeLock = null
+        worker?.interrupt()
+        super.onDestroy()
     }
 
     private fun readJobs(intent: Intent?): List<Job> {
@@ -69,9 +91,26 @@ class UploadService : Service() {
         val api = OtterApi(this)
         api.onMergeProgress = { done, total ->
             UploadState.setMerge(done, total)
-            publish()
+            touch()
         }
 
+        wakeLock = BackgroundGuard.acquireWakeLock(this)
+        val monitor = Thread { watchForFreeze() }.apply { start() }
+        try {
+            drainQueue(api)
+        } finally {
+            monitor.interrupt()
+            runCatching { wakeLock?.release() }
+            wakeLock = null
+            stalled = false
+            UploadState.endBatch()
+            publish()
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
+    private fun drainQueue(api: OtterApi) {
         var index = 0
         var idleRounds = 0
         while (true) {
@@ -99,7 +138,7 @@ class UploadService : Service() {
                     if (percent != lastPercent) {
                         lastPercent = percent
                         UploadState.setProgress(percent)
-                        publish()
+                        touch()
                     }
                 }
                 UploadState.ok(created.name)
@@ -107,14 +146,39 @@ class UploadService : Service() {
                 UploadState.fail(job.label, error.message)
             } finally {
                 source?.release()
+                touch()
                 publish()
             }
         }
+    }
 
-        UploadState.endBatch()
-        publish()
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
+    /**
+     * 熄屏后系统可能把进程整个冻结，socket 不再有任何字节进出。
+     * 卡住时在通知里说明原因，并让点击直达后台设置，而不是让用户以为还在传。
+     */
+    private fun watchForFreeze() {
+        while (!Thread.currentThread().isInterrupted) {
+            try {
+                Thread.sleep(STALL_CHECK_MILLIS)
+            } catch (_: InterruptedException) {
+                return
+            }
+            val quiet = System.currentTimeMillis() - lastActivityAt
+            // 队列空转时没字节是正常的，那会儿不算冻结
+            val frozen = UploadState.running && pending.isEmpty() && quiet > STALL_MILLIS
+            if (frozen != stalled) {
+                stalled = frozen
+                publish()
+            }
+        }
+    }
+
+    private fun touch() {
+        lastActivityAt = System.currentTimeMillis()
+        if (stalled) {
+            stalled = false
+            publish()
+        }
     }
 
     private fun publish() {
@@ -123,17 +187,27 @@ class UploadService : Service() {
     }
 
     private fun buildNotification(text: String, progress: Int, ongoing: Boolean): android.app.Notification {
-        val contentIntent = android.app.PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            android.app.PendingIntent.FLAG_IMMUTABLE
-        )
+        val shown = if (stalled) "$text\n${getString(R.string.upload_stalled)}" else text
+        val contentIntent = if (stalled) {
+            android.app.PendingIntent.getActivity(
+                this,
+                REQUEST_BACKGROUND,
+                Intent(this, SettingsActivity::class.java).putExtra(EXTRA_OPEN_BACKGROUND, true),
+                android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            android.app.PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+        }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_upload)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentText(shown)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(shown))
             .setOnlyAlertOnce(true)
             .setOngoing(ongoing)
             .setProgress(100, progress, false)
@@ -155,6 +229,12 @@ class UploadService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val EXTRA_URIS = "uris"
         private const val EXTRA_PATHS = "paths"
+        private const val STALL_CHECK_MILLIS = 5_000L
+        private const val STALL_MILLIS = 30_000L
+        private const val REQUEST_BACKGROUND = 2002
+
+        /** 设置页被通知点击唤起时，直接跳到后台权限设置 */
+        const val EXTRA_OPEN_BACKGROUND = "open_background"
 
         fun enqueue(ctx: Context, uris: List<Uri>) {
             start(ctx, uris.map { it.toString() }, emptyList())

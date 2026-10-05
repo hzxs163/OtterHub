@@ -16,6 +16,7 @@
     <string name="uploading">正在上传 %1$s（%2$d/%3$d）</string>
     <string name="merging">服务端合并分片中（%1$d/%2$d）</string>
     <string name="batch_done">本次上传：成功 %1$d，失败 %2$d</string>
+    <string name="upload_stalled">传输已被系统挂起，点此放开后台限制</string>
     <string name="not_configured">未配置网盘：请先在设置里填写地址和密码</string>
     <string name="empty_list">还没有文件，点右下角上传</string>
     <string name="tap_to_setup">还没登录网盘：点左下角齿轮按钮，填地址和访问密码</string>
@@ -35,6 +36,12 @@
     <string name="settings_saved">已保存并登录</string>
     <string name="settings_working">正在登录并测试…</string>
     <string name="settings_hint">填访问密码即可：保存时 App 会自动登录并缓存 token（7 天，过期自动重新登录）。API Token 框一般留空；只有网盘真的配了 API_TOKEN 环境变量时才填那个值，不要把网页的 auth=eyJ… 粘进来。</string>
+
+    <string name="settings_background">后台上传权限</string>
+    <string name="settings_background_needed">系统仍在限制本应用的后台活动：从相册或文件管理器分享上传时可能卡住不动，要打开 App 才继续。点下面的按钮，把「无限制 / 允许后台活动 / 自启动」打开。</string>
+    <string name="settings_background_ok">已放开电池优化。若仍在后台卡住，请再点下面的按钮，在厂商页面里把「自启动 / 后台运行」也允许（小米、红米在 应用设置→自启动 与 省电策略→无限制）。</string>
+    <string name="settings_background_open">打开后台限制设置页</string>
+    <string name="settings_background_missing">这台手机没有可调的后台限制页面</string>
 
     <string name="badge_private">私有</string>
 
@@ -58,6 +65,7 @@
     <string name="web_menu_native_upload">原生上传（后台不中断）</string>
     <string name="web_menu_native">切换到原生列表</string>
     <string name="web_menu_settings">网盘设置</string>
+    <string name="web_menu_background">后台传不动？放开后台限制</string>
     <string name="web_failed">页面打不开：%1$s\n点此重试</string>
     <string name="web_need_login">登录状态已失效，请在设置里确认访问密码</string>
     <string name="web_not_found">页面不存在</string>

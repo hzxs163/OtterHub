@@ -24,6 +24,25 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.buttonSave.setOnClickListener { saveAndSignIn() }
         binding.buttonTest.setOnClickListener { saveAndSignIn(keepOpen = true) }
+        binding.buttonBackground.setOnClickListener { openBackground() }
+
+        if (intent?.getBooleanExtra(UploadService.EXTRA_OPEN_BACKGROUND, false) == true) {
+            binding.root.post { openBackground() }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        binding.backgroundStatus.text = getString(
+            if (BackgroundGuard.needsBatteryExemption(this)) R.string.settings_background_needed
+            else R.string.settings_background_ok
+        )
+    }
+
+    /** 分享上传卡在后台被冻结基本都不是代码问题，跳厂商/系统的后台权限页让用户放开 */
+    private fun openBackground() {
+        if (BackgroundGuard.openPermissions(this)) return
+        toast(getString(R.string.settings_background_missing))
     }
 
     private fun saveAndSignIn(keepOpen: Boolean = false) {
